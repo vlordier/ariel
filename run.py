@@ -7,44 +7,7 @@ import logging
 import os
 from typing import List, Optional
 
-class Node:
-    def __init__(self, identifier: str):
-        self.identifier = identifier
-        self.links = []
-
-    def add_link(self, link):
-        self.links.append(link)
-
-    def __repr__(self):
-        return f"Node({self.identifier})"
-
-class Link:
-    def __init__(self, source: Node, target: Node, label: Optional[str] = None):
-        self.source = source
-        self.target = target
-        self.label = label
-
-    def __repr__(self):
-        label_str = f" [{self.label}]" if self.label else ""
-        return f"{self.source.identifier} -->{label_str} {self.target.identifier}"
-
-class Flowchart:
-    def __init__(self):
-        self.nodes = {}
-
-    def add_node(self, node: Node):
-        self.nodes[node.identifier] = node
-
-    def add_link(self, source: str, target: str, label: Optional[str] = None):
-        source_node = self.nodes.get(source) or Node(source)
-        target_node = self.nodes.get(target) or Node(target)
-        link = Link(source_node, target_node, label)
-        source_node.add_link(link)
-        self.add_node(source_node)
-        self.add_node(target_node)
-
-    def get_node(self, identifier: str) -> Optional[Node]:
-        return self.nodes.get(identifier)
+from app.models import Flowchart
 
 # set up logging
 logging.basicConfig(level=logging.INFO)
@@ -54,7 +17,7 @@ logger = logging.getLogger(__name__)
 class FlowchartExecutor:
     """A class for executing a flowchart from a markdown file."""
 
-    def __init__(self, md_filepath: str):
+    def __init__(self, md_filepath: str) -> None:
         """
         Initialize the FlowchartExecutorV4 with a graph structure and prepare an empty log and Mermaid code.
 
@@ -63,7 +26,7 @@ class FlowchartExecutor:
         """
         self.log: List[str] = []
         self.current_mermaid_code = self.parse_mermaid_from_markdown(
-            markdown_file_path=md_filepath
+            md_file_path=md_filepath
         )
         if not self.current_mermaid_code:
             self.log.append(f"Mermaid code not found in markdown file: {md_filepath}")
@@ -109,26 +72,22 @@ class FlowchartExecutor:
                         graph[from_node].append((to_node, label))
                         self.flowchart.add_link(from_node, to_node, label)
 
-    def parse_mermaid_from_markdown(self, markdown_file_path: str) -> Optional[str]:
+    def parse_mermaid_from_markdown(self, md_file_path: str) -> Optional[str]:
         """Parse the Mermaid code from the markdown file."""
-        if not os.path.exists(markdown_file_path):
-            self.log.append(f"Markdown file not found: {markdown_file_path}")
-            raise FileNotFoundError(f"Markdown file not found: {markdown_file_path}")
+        if not os.path.exists(md_file_path):
+            self.log.append(f"Markdown file not found: {md_file_path}")
+            raise FileNotFoundError(f"Markdown file not found: {md_file_path}")
 
-        if not markdown_file_path.endswith(".md"):
-            self.log.append(
-                f"Markdown file path must end with .md: {markdown_file_path}"
-            )
-            raise ValueError(
-                f"Markdown file path must end with .md: {markdown_file_path}"
-            )
+        if not md_file_path.endswith(".md"):
+            self.log.append(f"Markdown file path must end with .md: {md_file_path}")
+            raise ValueError(f"Markdown file path must end with .md: {md_file_path}")
 
-        logger.info(f"Reading markdown file: {markdown_file_path}")
+        logger.info(f"Reading markdown file: {md_file_path}")
 
         mermaid_code = ""
         in_mermaid_block = False
         try:
-            with open(markdown_file_path, encoding="utf-8") as md_file:
+            with open(md_file_path, encoding="utf-8") as md_file:
                 for line in md_file:
                     if "```mermaid" in line:
                         in_mermaid_block = True
@@ -143,10 +102,10 @@ class FlowchartExecutor:
                         mermaid_code += line
             return mermaid_code
         except FileNotFoundError:
-            self.log.append(f"Markdown file not found: {markdown_file_path}")
+            self.log.append(f"Markdown file not found: {md_file_path}")
             return None
 
-    def update_mermaid_code(self, current_node):
+    def update_mermaid_code(self, current_node) -> None:
         # Updating the Mermaid code to reflect the current state of the flowchart
         self.current_mermaid_code = "flowchart TD\n"
         node = self.flowchart.get_node(current_node)
@@ -164,7 +123,7 @@ class FlowchartExecutor:
     def dump_mermaid_code(self) -> str:
         """Generate the Mermaid code from the current state of the flowchart."""
         mermaid_code = "flowchart TD\n"
-        for node_id, node in self.flowchart.nodes.items():
+        for _, node in self.flowchart.nodes.items():
             for link in node.links:
                 label_part = f"|{link.label}|" if link.label else ""
                 mermaid_code += f"    {link.source.identifier} -->{label_part} {link.target.identifier}\n"
@@ -174,9 +133,11 @@ class FlowchartExecutor:
         """Compare the generated Mermaid code with the original code."""
         generated_code = self.dump_mermaid_code()
         if generated_code.strip() != original_code.strip():
-            raise ValueError("The generated Mermaid code does not match the original code.")
+            raise ValueError(
+                "The generated Mermaid code does not match the original code."
+            )
 
-    def execute_action(self, node, label):
+    def execute_action(self, node, label) -> None:
         """
         Placeholder for actual action implementation.
         """
@@ -222,6 +183,7 @@ class FlowchartExecutor:
             )
 
             current_node = next_node
+
     def get_log(self) -> list:
         """
         Return the log of actions and decisions taken during the flowchart execution.
@@ -251,7 +213,9 @@ if __name__ == "__main__":
 
     markdown_file_path = args.markdown_file
     executor = FlowchartExecutor(md_filepath=markdown_file_path)
-    executor.run("A")  # Assuming "A" is the start node based on the provided Mermaid code
+    executor.run(
+        "A"
+    )  # Assuming "A" is the start node based on the provided Mermaid code
     logger.info("Execution log:")
     for log_entry in executor.get_log():
         logger.info(log_entry)
