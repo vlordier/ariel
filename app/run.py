@@ -51,7 +51,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class FlowchartExecutorV4:
+class FlowchartExecutor:
     """A class for executing a flowchart from a markdown file."""
 
     def __init__(self, md_filepath: str):
@@ -161,6 +161,21 @@ class FlowchartExecutorV4:
                 self.current_mermaid_code += f"    {transition}\n"
         self.log.append(f"Current Mermaid Code:\n{self.current_mermaid_code}")
 
+    def dump_mermaid_code(self) -> str:
+        """Generate the Mermaid code from the current state of the flowchart."""
+        mermaid_code = "flowchart TD\n"
+        for node_id, node in self.flowchart.nodes.items():
+            for link in node.links:
+                label_part = f"|{link.label}|" if link.label else ""
+                mermaid_code += f"    {link.source.identifier} -->{label_part} {link.target.identifier}\n"
+        return mermaid_code
+
+    def compare_with_original(self, original_code: str) -> None:
+        """Compare the generated Mermaid code with the original code."""
+        generated_code = self.dump_mermaid_code()
+        if generated_code.strip() != original_code.strip():
+            raise ValueError("The generated Mermaid code does not match the original code.")
+
     def execute_action(self, node, label):
         """
         Placeholder for actual action implementation.
@@ -207,7 +222,6 @@ class FlowchartExecutorV4:
             )
 
             current_node = next_node
-
     def get_log(self) -> list:
         """
         Return the log of actions and decisions taken during the flowchart execution.
@@ -236,8 +250,19 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     markdown_file_path = args.markdown_file
-    executor = FlowchartExecutorV4(md_filepath=markdown_file_path)
-    executor.run("Start")
+    executor = FlowchartExecutor(md_filepath=markdown_file_path)
+    executor.run("A")  # Assuming "A" is the start node based on the provided Mermaid code
+    logger.info("Execution log:")
+    for log_entry in executor.get_log():
+        logger.info(log_entry)
+
+    # Compare the generated Mermaid code with the original and raise an exception if they don't match
+    try:
+        executor.compare_with_original(executor.current_mermaid_code)
+        logger.info("The generated Mermaid code matches the original code.")
+    except ValueError as e:
+        logger.error(str(e))
+        raise
 
     for node_id, node in executor.flowchart.nodes.items():
         logger.info(f"Node {node_id}: Links - {node.links}")
