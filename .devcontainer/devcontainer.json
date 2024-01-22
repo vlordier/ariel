@@ -18,9 +18,12 @@
 	},
 
 
-	"mounts": [
-		"source=${localWorkspaceFolder},target=/workspace/,type=bind,consistency=cached"
-	]
+	"mounts": [{
+		"source":"./", "target":"/workspace/","type":"bind"
+		}]
+
+	// "mounts": [{ "source": "./", "target": "/bunnies", "type": "bind" }]
+
 	
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
