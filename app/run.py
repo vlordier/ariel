@@ -7,6 +7,45 @@ import logging
 import os
 from typing import List, Optional
 
+class Node:
+    def __init__(self, identifier: str):
+        self.identifier = identifier
+        self.links = []
+
+    def add_link(self, link):
+        self.links.append(link)
+
+    def __repr__(self):
+        return f"Node({self.identifier})"
+
+class Link:
+    def __init__(self, source: Node, target: Node, label: Optional[str] = None):
+        self.source = source
+        self.target = target
+        self.label = label
+
+    def __repr__(self):
+        label_str = f" [{self.label}]" if self.label else ""
+        return f"{self.source.identifier} -->{label_str} {self.target.identifier}"
+
+class Flowchart:
+    def __init__(self):
+        self.nodes = {}
+
+    def add_node(self, node: Node):
+        self.nodes[node.identifier] = node
+
+    def add_link(self, source: str, target: str, label: Optional[str] = None):
+        source_node = self.nodes.get(source) or Node(source)
+        target_node = self.nodes.get(target) or Node(target)
+        link = Link(source_node, target_node, label)
+        source_node.add_link(link)
+        self.add_node(source_node)
+        self.add_node(target_node)
+
+    def get_node(self, identifier: str) -> Optional[Node]:
+        return self.nodes.get(identifier)
+
 # set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,9 +68,10 @@ class FlowchartExecutorV4:
         if not self.current_mermaid_code:
             self.log.append(f"Mermaid code not found in markdown file: {md_filepath}")
             raise ValueError(f"Mermaid code not found in markdown file: {md_filepath}")
-        self.graph = self.build_graph_from_mermaid_code(self.current_mermaid_code)
+        self.flowchart = Flowchart()
+        self.build_graph_from_mermaid_code(self.current_mermaid_code)
 
-    def build_graph_from_mermaid_code(self, mermaid_code: str) -> dict:
+    def build_graph_from_mermaid_code(self, mermaid_code: str) -> None:
         """Build a graph from the Mermaid code."""
         graph = {}
         if mermaid_code:
@@ -51,16 +91,23 @@ class FlowchartExecutorV4:
                 if "-->" in line:
                     parts = line.split("-->")
                     from_node = parts[0].strip()
-                    to_node = parts[1].strip()
+                    to_node_part = parts[1].strip()
+                    to_node = ""
                     label = ""
-                    if "|" in to_node:
-                        to_node, label = to_node.split("|")
+                    # Check if there is a label
+                    if "|" in to_node_part:
+                        # Extract the label and the to_node
+                        to_node, label = to_node_part.split("|", 1)
+                        to_node = to_node.strip("[] ")
                         label = label.strip(" |")
-                    to_node = to_node.strip()
-                    if from_node not in graph:
-                        graph[from_node] = []
-                    graph[from_node].append((to_node, label))
-        return graph
+                    else:
+                        to_node = to_node_part.strip("[] ")
+                    # Ensure that both from_node and to_node are valid before adding the link
+                    if from_node and to_node:
+                        if from_node not in graph:
+                            graph[from_node] = []
+                        graph[from_node].append((to_node, label))
+                        self.flowchart.add_link(from_node, to_node, label)
 
     def parse_mermaid_from_markdown(self, markdown_file_path: str) -> Optional[str]:
         """Parse the Mermaid code from the markdown file."""
@@ -102,13 +149,15 @@ class FlowchartExecutorV4:
     def update_mermaid_code(self, current_node):
         # Updating the Mermaid code to reflect the current state of the flowchart
         self.current_mermaid_code = "flowchart TD\n"
-        for node, edges in self.graph.items():
-            for edge in edges:
-                target, label = edge
+        node = self.flowchart.get_node(current_node)
+        if node:
+            for edge in node.links:
+                target = edge.target.identifier
+                label = edge.label
                 if label:
-                    transition = f"{node} -->|{label}| {target}"
+                    transition = f"{current_node} -->|{label}| {target}"
                 else:
-                    transition = f"{node} --> {target}"
+                    transition = f"{current_node} --> {target}"
                 self.current_mermaid_code += f"    {transition}\n"
         self.log.append(f"Current Mermaid Code:\n{self.current_mermaid_code}")
 
@@ -138,12 +187,14 @@ class FlowchartExecutorV4:
         while True:
             self.update_mermaid_code(current_node)
 
-            if current_node not in self.graph or not self.graph[current_node]:
+            node = self.flowchart.get_node(current_node)
+            if not node or not node.links:
                 self.log.append(f"End of flow at: {current_node}")
                 break
 
-            next_step = self.graph[current_node][0]  # Get the first transition
-            next_node, label = next_step
+            next_step = node.links[0]  # Get the first transition
+            next_node = next_step.target.identifier
+            label = next_step.label
 
             if current_node.endswith("?}"):  # Decision node
                 next_node = self.make_decision(current_node, label)
@@ -188,4 +239,5 @@ if __name__ == "__main__":
     executor = FlowchartExecutorV4(md_filepath=markdown_file_path)
     executor.run("Start")
 
-    logger.info(executor.graph)
+    for node_id, node in executor.flowchart.nodes.items():
+        logger.info(f"Node {node_id}: Links - {node.links}")
