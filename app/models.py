@@ -6,6 +6,9 @@ The Node class represents a node in a flowchart and has an identifier and a list
 The Link class represents a link between two nodes in a flowchart and has a source and a target node and an optional label.
 """
 
+from typing import List, Optional
+
+
 class Node:
     """
     A class representing a node in a flowchart.
@@ -69,4 +72,3 @@ class Flowchart:
     def get_node(self, identifier: str) -> Optional[Node]:
         """Get a node from the flowchart."""
         return self.nodes.get(identifier)
-
